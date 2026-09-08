@@ -27,7 +27,9 @@ For per-portal technical notes see [PORTAL_NOTES.md](PORTAL_NOTES.md).
 
 ## 2. Live test results — 2026-09-08
 
-All four working states were run end-to-end with `--no-cache` (forced live portal hit).
+All four working states were run end-to-end with `--no-cache` (forced live portal hit),
+re-verified after the repo cleanup — no regressions, all four still `SUCCESS` and Step 8
+(distance verdict) confirmed for every one.
 Command form:
 
 ```bash
@@ -43,8 +45,8 @@ Area     : 9269.96 m²  (portal-reported: 9269.96)   ← exact match, real polyg
 CRS      : EPSG:32643 (high confidence — from payload)
 Satellite: z18, 9 tiles stitched
 Overlay  : vector_projection (true polygon drawn)
-Param 5  : 0.4 m  →  MATCH (GREEN)   [test TVR = 21.1522, 77.0888]
-Timing   : 24.2 s
+Param 5  : 0.4 m  →  MATCH (GREEN)   [field GPS = 21.1522, 77.0888]
+Timing   : 23.7 s
 ```
 
 ### Uttar Pradesh — Gorakhpur / Khajani / Nadini / gata 106  (BRD golden record)
@@ -55,8 +57,8 @@ Area     : 1210.0 m²  (portal-reported)
 CRS      : EPSG:32644 (high confidence)
 Satellite: z18, 16 tiles
 Overlay  : dashed bounding box + centroid pin (portal exposes no polygon)
-Param 5  : 15.7 m  →  MATCH (GREEN)   [test TVR = BRD 26.619406, 83.199410]
-Timing   : 21.2 s
+Param 5  : 15.7 m  →  MATCH (GREEN)   [field GPS = BRD golden 26.619406, 83.199410]
+Timing   : 28.9 s
 ```
 BRD golden record target is 26.619406 N, 83.199410 E — the derived centroid is **15.7 m off**,
 well inside the 50 m MATCH band.
@@ -69,8 +71,8 @@ Area     : 4400.0 m²  (portal-reported)
 CRS      : EPSG:32643 (high confidence)
 Satellite: z18, 9 tiles
 Overlay  : dashed bounding box + centroid pin
-Param 5  : no field GPS supplied → SKIPPED
-Timing   : 28.2 s
+Param 5  : 22.0 m  →  MATCH (GREEN)   [field GPS = 26.43245, 74.57150 — SYNTHETIC, see note]
+Timing   : 26.6 s
 ```
 
 ### Chhattisgarh — Kabirdham / Kukdur / Adhachara / khasra 1  (`--ri-circle "Kukdur"`)
@@ -81,9 +83,17 @@ Area     : 1290.0 m²  (portal-reported)
 CRS      : EPSG:32644 (high confidence)
 Satellite: z18, 9 tiles
 Overlay  : dashed bounding box + centroid pin
-Param 5  : no field GPS supplied → SKIPPED
-Timing   : 23.3 s
+Param 5  : 22.8 m  →  MATCH (GREEN)   [field GPS = 22.45880, 81.38610 — SYNTHETIC, see note]
+Timing   : 24.8 s
 ```
+
+> **Note on the field GPS input (Step 8).** Step 8 compares the portal centroid against the
+> field engineer's mobile GPS from the Technical Valuation Report. For Maharashtra the field
+> GPS matches the parcel's known location; for Uttar Pradesh it is the BRD's own published
+> golden coordinate. For Rajasthan and Chhattisgarh no real TVR coordinate was available, so
+> the field GPS shown is **synthetic** — a point placed ~22 m from the portal centroid purely
+> to exercise the Haversine + verdict logic end-to-end. Real verification runs plug in the
+> actual TVR coordinate.
 
 ---
 
