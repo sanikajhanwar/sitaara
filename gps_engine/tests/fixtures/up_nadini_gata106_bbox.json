@@ -1,0 +1,9 @@
+{
+  "_source": "live capture — upbhunaksha.gov.in bhunakshaserver/MapInfo/getPlotByPlotNo, 2026-09-06; Gorakhpur/Khajani/नटिनी, Gata 106 (BRD golden record SGRL00037212)",
+  "centroid_native": [718979.4214991957, 2946150.416603581],
+  "bbox": [718959.2518262942, 2946125.1765618958, 718999.5911720971, 2946175.656645266],
+  "native_crs": "EPSG:32644",
+  "raw_area": 1210.0,
+  "brd_expected_centroid": {"lat": 26.619406, "lon": 83.199410},
+  "brd_tolerance_m": 50
+}

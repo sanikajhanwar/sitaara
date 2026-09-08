@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+
+# OS
+.DS_Store
+**/.DS_Store
+
+# GPS engine runtime output (screenshots, geojson, satellite tiles, cache)
+gps_engine/output/
+gps_engine/_scratch_archive/
+
+# Local-only reference material (client BRD docs, PoC mockup) — not for the shared repo
+_reference/
+
+# Virtualenvs
+.venv/
+venv/

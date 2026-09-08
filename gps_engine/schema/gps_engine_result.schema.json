@@ -1,0 +1,121 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://sitaara.internal/schemas/gps_engine_result.schema.json",
+  "title": "GPS Engine Result",
+  "description": "Output of gps_engine.pipeline.run() — Parameter 5 (Geo-Coordinates) payload for the verification report.",
+  "type": "object",
+  "required": ["status", "state", "nav_resolved", "warnings", "timing_seconds"],
+  "additionalProperties": true,
+  "properties": {
+    "application_id": { "type": ["string", "null"] },
+    "status": { "enum": ["SUCCESS", "REFER", "FAILED"] },
+    "reason": { "type": ["string", "null"] },
+    "state": { "type": "string" },
+    "parameter5_verdict": { "enum": ["MATCH", "REFER", "NEGATIVE"] },
+
+    "nav_resolved": {
+      "type": "object",
+      "required": ["district", "tehsil", "village", "khasra"],
+      "properties": {
+        "district": { "type": "string" },
+        "tehsil": { "type": "string" },
+        "village": { "type": "string" },
+        "khasra": { "type": "string" }
+      }
+    },
+
+    "portal": {
+      "type": "object",
+      "properties": {
+        "name": { "type": ["string", "null"] },
+        "url": { "type": ["string", "null"] }
+      }
+    },
+
+    "parcel": {
+      "type": ["object", "null"],
+      "required": ["found", "centroid_wgs84"],
+      "properties": {
+        "found": { "type": "boolean" },
+        "source_crs": { "type": ["string", "null"] },
+        "source_crs_confidence": { "enum": ["high", "low"] },
+        "extraction_method": {
+          "enum": ["wkt", "geojson", "gml", "ol_coords", "bbox", "centroid_point"]
+        },
+        "geometry_wgs84": { "type": ["object", "null"] },
+        "bbox_wgs84": {
+          "type": ["array", "null"],
+          "items": { "type": "number" },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "centroid_wgs84": {
+          "type": ["object", "null"],
+          "required": ["lat", "lon"],
+          "properties": {
+            "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+            "lon": { "type": "number", "minimum": -180, "maximum": 180 }
+          }
+        },
+        "area_sqm": { "type": ["number", "null"], "minimum": 0 },
+        "area_sqm_source": { "enum": ["computed_from_polygon", "portal_reported"] },
+        "area_sqm_portal_reported": { "type": ["number", "null"] },
+        "polygon_available": { "type": "boolean" },
+        "vertex_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+
+    "image": {
+      "type": ["object", "null"],
+      "properties": { "path": { "type": ["string", "null"] } }
+    },
+
+    "satellite": {
+      "type": "object",
+      "properties": {
+        "status": { "enum": ["SUCCESS", "FAILED"] },
+        "path": { "type": ["string", "null"] },
+        "zoom": { "type": ["integer", "null"] },
+        "provider": { "type": "string" },
+        "bbox_wgs84": {
+          "type": ["array", "null"],
+          "items": { "type": "number" }, "minItems": 4, "maxItems": 4
+        },
+        "tiles_downloaded": { "type": "integer" },
+        "tiles_failed": { "type": "integer" }
+      }
+    },
+
+    "overlay": {
+      "type": "object",
+      "properties": {
+        "status": { "enum": ["SUCCESS", "FAILED"] },
+        "path": { "type": ["string", "null"] },
+        "alignment_method": { "enum": ["vector_projection", "gcp_homography"] },
+        "centroid_pixel": {
+          "type": ["array", "null"], "items": { "type": "number" }, "minItems": 2, "maxItems": 2
+        },
+        "parcel_in_frame": { "type": ["boolean", "null"] }
+      }
+    },
+
+    "distance": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["SUCCESS", "SKIPPED"] },
+        "distance_m": { "type": ["number", "null"], "minimum": 0 },
+        "verdict": { "enum": ["MATCH", "REFER", "NEGATIVE", null] },
+        "color": { "enum": ["GREEN", "AMBER", "RED", null] },
+        "bhu_centroid": { "type": ["object", "null"] },
+        "tvr_gps": { "type": ["object", "null"] },
+        "note": { "type": ["string", "null"] }
+      }
+    },
+
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "timing_seconds": { "type": "number", "minimum": 0 },
+    "portal_owner_info": { "type": "string" },
+    "debug_screenshots": { "type": ["object", "null"] }
+  }
+}

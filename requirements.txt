@@ -1,0 +1,13 @@
+# GPS Engine — Steps 1–8
+playwright>=1.40          # Step 1: live portal automation  (run: playwright install chromium)
+shapely>=2.0             # Step 2/3: parcel polygon geometry
+pyproj>=3.6              # Step 3: UTM/state-plane -> WGS84
+rapidfuzz>=3.0           # naming layer: fuzzy match of portal dropdown options
+indic-transliteration>=2.3   # naming layer: English <-> Devanagari
+requests>=2.28           # Step 4: satellite tile download
+pillow>=10.0             # Step 4/6: tile stitching + overlay compositing
+jsonschema>=4.0          # result payload validation
+# opencv-python          # Step 7: only needed for the GCP/homography fallback (screenshot-only states)
+
+# dev
+pytest>=7.0
