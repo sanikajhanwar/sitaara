@@ -174,5 +174,7 @@ python3 -m gps_engine.cli run --state Maharashtra --district Akola --tehsil Akot
 python3 -m gps_engine.batch_test --no-cache
 ```
 
-Outputs land in `gps_engine/output/` (git-ignored): `gps_engine_result.json`, `satellite.png`,
-`overlay.png`, `bhunaksha.png`, `parcel_wgs84.geojson`.
+Each run lands in its own folder `gps_engine/output/runs/<timestamp>[_<application-id>]/`
+(git-ignored) — `step1.json … step8.json`, `gps_engine_result.json`, `satellite.png`,
+`overlay.png`, `bhunaksha.png`, `parcel_*.geojson`. `gps_engine/output/latest` points at the
+newest run.

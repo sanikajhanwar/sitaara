@@ -61,7 +61,10 @@ def main():
     args = parser.parse_args()
 
     if args.command == "step1":
-        engine = Step1Capture()
+        import time
+        from gps_engine.config import OUTPUT_DIR
+        run_dir = OUTPUT_DIR / "runs" / time.strftime("%Y%m%d-%H%M%S")
+        engine = Step1Capture(output_dir=run_dir)
         result = engine.capture_plot(
             state=args.state,
             district=args.district,
@@ -124,10 +127,16 @@ def main():
             print(f"  Param 5  : {dist['distance_m']} m  ->  {dist['verdict']} ({dist['color']})")
         elif dist.get("status") == "SKIPPED":
             print(f"  Param 5  : no field GPS supplied — pass --tvr-lat/--tvr-lon for the verdict")
-        print(f"  Timing   : {result.get('timing_seconds')}s")
+        st = result.get("step_timings_seconds") or {}
+        if st:
+            print(f"  Timing   : {result.get('timing_seconds')}s total  ("
+                  + ", ".join(f"{k} {v}s" for k, v in st.items()) + ")")
+        else:
+            print(f"  Timing   : {result.get('timing_seconds')}s")
         for w in result.get("warnings", []):
             print(f"  ! {w}")
-        print(f"  Result   : {pipeline.OUTPUT_DIR / 'gps_engine_result.json'}")
+        print(f"  Run dir  : {result.get('output_dir')}")
+        print(f"  Result   : {result.get('output_dir')}/gps_engine_result.json")
         print("=" * 70 + "\n")
 
     else:

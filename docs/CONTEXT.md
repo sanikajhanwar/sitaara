@@ -191,6 +191,16 @@ for the audit trail, and the output JSON is validated against
 outage is never cached). Step 8 is always recomputed on a cache hit because it depends on the
 caller's TVR GPS. `--no-cache` bypasses it.
 
+### Every run is its own immutable audit folder
+`pipeline.run()` writes to `output/runs/<timestamp>[_<application_id>]/`, never to a shared
+path — so verifying 100 loan applications leaves 100 retained records instead of each run
+overwriting the last. Inside the folder: `step1.json … step8.json` (each step's full
+`to_dict()` — inputs, raw portal payload, status, warnings), the raw Step 1 metadata, the
+portal screenshots, the GeoJSON, the satellite mosaic, the overlay, and the aggregate
+`gps_engine_result.json` (which also carries `run_id`, `output_dir`, and per-step timings).
+`output/latest` is a symlink to the newest run. This satisfies the BRD's audit-trail
+requirement (§6.2/§6.4) without any step logic changing.
+
 ---
 
 ## 6. Tech stack

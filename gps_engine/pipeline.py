@@ -1,7 +1,7 @@
 """
 GPS Engine — Pipeline Orchestrator (Steps 1 → 8)
 ================================================
-Runs the full pipeline for one parcel and emits `output/gps_engine_result.json`.
+Runs the full pipeline for one parcel.
 
     python3 -m gps_engine.cli run --state "Maharashtra" --district "..." \
         --tehsil "..." --village "..." --khasra "..." \
@@ -11,12 +11,32 @@ Steps 1-3  -> government GPS centroid + parcel polygon (gps_engine.step{1,2,3}_*
 Step  4    -> satellite mosaic of the same ground        (step4_satellite)
 Steps 5-7  -> parcel superimposed on the satellite       (step6_overlay)
 Step  8    -> Haversine distance vs the field GPS verdict (step8_distance)
+
+Output layout
+-------------
+Every run gets its own immutable folder — an audit trail, so results for many
+loan applications are retained instead of one run overwriting the next:
+
+    output/
+      runs/
+        20260909-143022_SGRL00037212/     <- this run
+          step1.json  step2.json  ...  step8.json   (each step's full record)
+          step1_metadata.json                        (raw Step 1 adapter output)
+          bhunaksha.png  debug_*.png                  (portal screenshots)
+          parcel_native.geojson  parcel_wgs84.geojson
+          satellite.png  satellite.pgw  overlay.png
+          gps_engine_result.json                      (the aggregate)
+      cache/                                          (shared 24 h result cache)
+      latest -> runs/20260909-143022_SGRL00037212     (symlink to the newest run)
+
+`run_id` = timestamp, suffixed with the application_id when one is given.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -52,28 +72,43 @@ def run(
     superimpose: bool = True,
     use_cache: bool = True,
 ) -> Dict[str, Any]:
-    output_dir = output_dir or OUTPUT_DIR
-    output_dir.mkdir(parents=True, exist_ok=True)
+    base_dir = output_dir or OUTPUT_DIR
+    cache_dir = base_dir / "cache"
+    run_id = _make_run_id(application_id)
+    run_dir = base_dir / "runs" / run_id
+    n = 2
+    while run_dir.exists() and any(run_dir.iterdir()):   # same-second collision
+        run_dir = base_dir / "runs" / f"{run_id}~{n}"
+        n += 1
+    run_id = run_dir.name
+    run_dir.mkdir(parents=True, exist_ok=True)
     started = time.time()
+    timings: Dict[str, float] = {}
 
     ckey = (state, district, tehsil, village, khasra_no, extra_params)
     if use_cache:
-        cached = _cache.load(output_dir / "cache", *ckey)
+        cached = _cache.load(cache_dir, *ckey)
         if cached is not None:
             # Step 8 is cheap and depends on the caller's TVR GPS — always recompute it.
-            c = cached.get("parcel", {}).get("centroid_wgs84")
+            c = (cached.get("parcel") or {}).get("centroid_wgs84")
             if c:
                 d = verify_distance(c["lat"], c["lon"], tvr_lat, tvr_lon)
                 cached["distance"] = d.to_dict()
+                _write_step(run_dir, "step8", d.to_dict())
                 if d.status == "SUCCESS":
                     cached["parameter5_verdict"] = d.verdict
-            (output_dir / "gps_engine_result.json").write_text(
+            cached["run_id"] = run_id
+            cached["output_dir"] = str(run_dir)
+            (run_dir / "gps_engine_result.json").write_text(
                 json.dumps(cached, indent=2, ensure_ascii=False))
-            logger.info("Pipeline served from cache (%s)", cached.get("status"))
+            _point_latest_at(run_dir, base_dir)
+            logger.info("Pipeline served from cache (%s) -> %s", cached.get("status"), run_dir)
             return cached
 
     result: Dict[str, Any] = {
         "application_id": application_id,
+        "run_id": run_id,
+        "output_dir": str(run_dir),
         "status": "FAILED",
         "reason": None,
         "state": state,
@@ -82,13 +117,18 @@ def run(
         "image": None,
         "warnings": [],
         "timing_seconds": None,
+        "step_timings_seconds": timings,
     }
 
     # ── STEP 1 ──────────────────────────────────────────────────────────────
-    step1 = Step1Capture(output_dir=output_dir).capture_plot(
+    _t = time.perf_counter()
+    step1 = Step1Capture(output_dir=run_dir).capture_plot(
         state=state, district=district, tehsil=tehsil, village=village,
         khasra_no=khasra_no, headless=headless, extra_params=extra_params,
     )
+    timings["step1"] = round(time.perf_counter() - _t, 2)
+    _write_step(run_dir, "step1", step1)
+
     result["portal"] = {
         "name": CADASTRAL_PORTALS.get(state, {}).get("adapter"),
         "url": step1.get("portal_url"),
@@ -104,11 +144,11 @@ def run(
 
     if step1.get("status") == "FAILED":
         result["reason"] = step1.get("error") or "step1_failed"
-        return _finish_and_cache(result, started, output_dir, ckey, use_cache)
+        return _finish_and_cache(result, started, run_dir, base_dir, cache_dir, ckey, use_cache)
     if step1.get("status") == "REFER":
         result["status"] = "REFER"
         result["reason"] = step1.get("reason") or "step1_refer"
-        return _finish_and_cache(result, started, output_dir, ckey, use_cache)
+        return _finish_and_cache(result, started, run_dir, base_dir, cache_dir, ckey, use_cache)
 
     parcel_raw = step1.get("parcel_raw")
     if not parcel_raw or parcel_raw.get("error"):
@@ -119,17 +159,20 @@ def run(
             f"({parcel_raw.get('error') if parcel_raw else 'missing'}); "
             "screenshot captured but Parameter 5 cannot be verified"
         )
-        return _finish_and_cache(result, started, output_dir, ckey, use_cache)
+        return _finish_and_cache(result, started, run_dir, base_dir, cache_dir, ckey, use_cache)
 
     # ── STEP 2 ──────────────────────────────────────────────────────────────
+    _t = time.perf_counter()
     g = extract_parcel_geometry(parcel_raw, state=state)
+    timings["step2"] = round(time.perf_counter() - _t, 2)
+    _write_step(run_dir, "step2", g.to_dict())
     result["warnings"] += g.warnings
     if not g.found:
         result["status"] = "REFER"
         result["reason"] = g.reason
-        return _finish_and_cache(result, started, output_dir, ckey, use_cache)
+        return _finish_and_cache(result, started, run_dir, base_dir, cache_dir, ckey, use_cache)
 
-    (output_dir / "parcel_native.geojson").write_text(json.dumps({
+    (run_dir / "parcel_native.geojson").write_text(json.dumps({
         "type": "Feature",
         "properties": {"crs": g.native_crs, "method": g.method, "raw_area": g.raw_area,
                        "khasra": khasra_no},
@@ -137,12 +180,15 @@ def run(
     }, indent=2))
 
     # ── STEP 3 ──────────────────────────────────────────────────────────────
+    _t = time.perf_counter()
     t = transform_parcel(
         g.geometry_native,
         payload_crs=g.native_crs,
         state=state,
         bbox_native=g.bbox_native,
     )
+    timings["step3"] = round(time.perf_counter() - _t, 2)
+    _write_step(run_dir, "step3", t.to_dict())
     result["warnings"] += t.warnings
 
     result["parcel"] = {
@@ -161,7 +207,7 @@ def run(
     }
 
     if t.status == "SUCCESS":
-        (output_dir / "parcel_wgs84.geojson").write_text(json.dumps({
+        (run_dir / "parcel_wgs84.geojson").write_text(json.dumps({
             "type": "Feature",
             "properties": {"centroid": t.centroid_wgs84, "area_sqm": t.area_sqm},
             "geometry": t.geometry_wgs84,
@@ -173,35 +219,44 @@ def run(
 
     centroid = t.centroid_wgs84
     if not centroid:
-        return _finish_and_cache(result, started, output_dir, ckey, use_cache)
+        return _finish_and_cache(result, started, run_dir, base_dir, cache_dir, ckey, use_cache)
 
     # ── STEP 4: satellite mosaic ───────────────────────────────────────────
-    sat_bbox = sat_size = None
+    sat_bbox = None
     if superimpose:
+        _t = time.perf_counter()
         sat = fetch_satellite(
             centroid["lat"], centroid["lon"], span_m=span_m,
-            out_path=output_dir / "satellite.png",
+            out_path=run_dir / "satellite.png",
         )
+        timings["step4"] = round(time.perf_counter() - _t, 2)
+        _write_step(run_dir, "step4", sat.to_dict())
         result["satellite"] = sat.to_dict()
         result["warnings"] += sat.warnings
         if sat.status == "SUCCESS":
-            sat_bbox, sat_size = sat.bbox_wgs84, sat.pixel_size
+            sat_bbox = sat.bbox_wgs84
         else:
             result["warnings"].append(f"step4 satellite fetch failed: {sat.reason}")
 
     # ── STEPS 5-7: superimpose parcel on satellite ────────────────────────
     if superimpose and sat_bbox:
+        _t = time.perf_counter()
         ov = superimpose_vector(
-            output_dir / "satellite.png", sat_bbox,
+            run_dir / "satellite.png", sat_bbox,
             t.geometry_wgs84, centroid,
-            out_path=output_dir / "overlay.png",
+            out_path=run_dir / "overlay.png",
             parcel_bbox_wgs84=t.bbox_wgs84,
         )
+        timings["step6"] = round(time.perf_counter() - _t, 2)
+        _write_step(run_dir, "step6", ov.to_dict())
         result["overlay"] = ov.to_dict()
         result["warnings"] += ov.warnings
 
     # ── STEP 8: Haversine distance verdict ────────────────────────────────
+    _t = time.perf_counter()
     dist = verify_distance(centroid["lat"], centroid["lon"], tvr_lat, tvr_lon)
+    timings["step8"] = round(time.perf_counter() - _t, 2)
+    _write_step(run_dir, "step8", dist.to_dict())
     result["distance"] = dist.to_dict()
     if dist.status == "SUCCESS":
         result["parameter5_verdict"] = dist.verdict
@@ -210,8 +265,45 @@ def run(
             result["reason"] = "gps_distance_negative"
         result["warnings"].append(dist.note)
 
-    return _finish_and_cache(result, started, output_dir, ckey, use_cache)
+    return _finish_and_cache(result, started, run_dir, base_dir, cache_dir, ckey, use_cache)
 
+
+# ── run-folder helpers ─────────────────────────────────────────────────────
+
+def _make_run_id(application_id: Optional[str]) -> str:
+    ts = time.strftime("%Y%m%d-%H%M%S")
+    if application_id:
+        safe = re.sub(r"[^A-Za-z0-9_.-]", "_", str(application_id))[:60]
+        return f"{ts}_{safe}"
+    return ts
+
+
+def _write_step(run_dir: Path, name: str, payload: Any) -> None:
+    try:
+        (run_dir / f"{name}.json").write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False, default=str)
+        )
+    except Exception as e:  # never let audit-file I/O break the pipeline
+        logger.warning("could not write %s.json: %s", name, e)
+
+
+def _point_latest_at(run_dir: Path, base_dir: Path) -> None:
+    """Repoint output/latest -> runs/<this run> so the newest run is always one hop away."""
+    if run_dir.parent.parent != base_dir:
+        return
+    link = base_dir / "latest"
+    try:
+        if link.is_symlink():
+            link.unlink()
+        elif link.exists():
+            logger.warning("output/latest exists and is not a symlink — leaving it alone")
+            return
+        link.symlink_to(Path("runs") / run_dir.name, target_is_directory=True)
+    except Exception as e:
+        logger.warning("could not update output/latest link: %s", e)
+
+
+# ── result finalisation ────────────────────────────────────────────────────
 
 _SCHEMA_PATH = Path(__file__).parent / "schema" / "gps_engine_result.schema.json"
 
@@ -228,7 +320,7 @@ def _validate(result: Dict[str, Any]) -> None:
         logger.warning("result JSON failed schema validation: %s", e)
 
 
-def _finish(result: Dict[str, Any], started: float, output_dir: Path) -> Dict[str, Any]:
+def _finish(result: Dict[str, Any], started: float, run_dir: Path, base_dir: Path) -> Dict[str, Any]:
     elapsed = round(time.time() - started, 1)
     result["timing_seconds"] = elapsed
     if elapsed > SLA_SECONDS and result["status"] == "SUCCESS":
@@ -236,13 +328,14 @@ def _finish(result: Dict[str, Any], started: float, output_dir: Path) -> Dict[st
         result["reason"] = "sla_exceeded"
         result["warnings"].append(f"pipeline took {elapsed}s (> {SLA_SECONDS}s SLA)")
     _validate(result)
-    (output_dir / "gps_engine_result.json").write_text(json.dumps(result, indent=2, ensure_ascii=False))
-    logger.info("Pipeline %s (%s) in %ss", result["status"], result.get("reason"), elapsed)
+    (run_dir / "gps_engine_result.json").write_text(json.dumps(result, indent=2, ensure_ascii=False))
+    _point_latest_at(run_dir, base_dir)
+    logger.info("Pipeline %s (%s) in %ss -> %s", result["status"], result.get("reason"), elapsed, run_dir)
     return result
 
 
-def _finish_and_cache(result, started, output_dir, ckey, use_cache):
-    out = _finish(result, started, output_dir)
+def _finish_and_cache(result, started, run_dir, base_dir, cache_dir, ckey, use_cache):
+    out = _finish(result, started, run_dir, base_dir)
     if use_cache:
-        _cache.store(output_dir / "cache", out, *ckey)
+        _cache.store(cache_dir, out, *ckey)
     return out

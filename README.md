@@ -72,9 +72,14 @@ Place names may be English or Devanagari. For Rajasthan and Chhattisgarh also pa
 | `--span-m` | satellite frame size in metres (default 300) |
 | `--no-superimpose` | skip steps 4–7 (geometry + centroid only) |
 | `--no-cache` | ignore the 24 h result cache |
+| `--application-id` | tags the run folder (audit trail) |
 | `--headed` | show the browser window |
 
-Outputs go to `gps_engine/output/` (git-ignored).
+Each run writes an immutable folder `gps_engine/output/runs/<timestamp>[_<application-id>]/`
+containing `step1.json … step8.json` (each step's full record), the raw portal metadata, the
+screenshots, the GeoJSON, `satellite.png`, `overlay.png`, and the aggregate
+`gps_engine_result.json`. `gps_engine/output/latest` is a symlink to the newest run. The whole
+`output/` tree is git-ignored.
 
 ## Test
 

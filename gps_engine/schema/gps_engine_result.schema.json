@@ -8,10 +8,16 @@
   "additionalProperties": true,
   "properties": {
     "application_id": { "type": ["string", "null"] },
+    "run_id": { "type": "string" },
+    "output_dir": { "type": "string" },
     "status": { "enum": ["SUCCESS", "REFER", "FAILED"] },
     "reason": { "type": ["string", "null"] },
     "state": { "type": "string" },
     "parameter5_verdict": { "enum": ["MATCH", "REFER", "NEGATIVE"] },
+    "step_timings_seconds": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    },
 
     "nav_resolved": {
       "type": "object",
