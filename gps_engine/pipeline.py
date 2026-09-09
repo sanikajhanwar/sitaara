@@ -166,6 +166,13 @@ def run(
     g = extract_parcel_geometry(parcel_raw, state=state)
     timings["step2"] = round(time.perf_counter() - _t, 2)
     _write_step(run_dir, "step2", g.to_dict())
+    _log_block("2", "Extract parcel geometry", {
+        "Method": g.method,
+        "Native CRS": g.native_crs,
+        "Vertices": g.vertex_count,
+        "Portal area": f"{g.raw_area} m2" if g.raw_area is not None else None,
+        "Status": f"{g.status} ({g.reason})" if g.reason else g.status,
+    }, g.warnings)
     result["warnings"] += g.warnings
     if not g.found:
         result["status"] = "REFER"
@@ -189,6 +196,13 @@ def run(
     )
     timings["step3"] = round(time.perf_counter() - _t, 2)
     _write_step(run_dir, "step3", t.to_dict())
+    _log_block("3", "Transform to WGS84 + centroid", {
+        "Source CRS": f"{t.source_crs} ({t.source_crs_confidence} confidence)" if t.source_crs else None,
+        "Centroid": f"{t.centroid_wgs84['lat']}, {t.centroid_wgs84['lon']}" if t.centroid_wgs84 else None,
+        "Area": f"{t.area_sqm} m2" if t.area_sqm is not None else f"{g.raw_area} m2 (portal-reported, no polygon)",
+        "Vertices": t.vertex_count,
+        "Status": f"{t.status} ({t.reason})" if t.reason else t.status,
+    }, t.warnings)
     result["warnings"] += t.warnings
 
     result["parcel"] = {
@@ -231,6 +245,14 @@ def run(
         )
         timings["step4"] = round(time.perf_counter() - _t, 2)
         _write_step(run_dir, "step4", sat.to_dict())
+        _log_block("4", "Fetch & stitch satellite imagery", {
+            "Provider": sat.provider,
+            "Zoom level": sat.zoom,
+            "Tiles": f"{sat.tiles_downloaded} downloaded, {sat.tiles_failed} failed",
+            "Image size": f"{sat.pixel_size[0]}x{sat.pixel_size[1]} px" if sat.pixel_size else None,
+            "BBox (lon/lat)": sat.bbox_wgs84,
+            "Status": f"{sat.status} ({sat.reason})" if sat.reason else sat.status,
+        }, sat.warnings)
         result["satellite"] = sat.to_dict()
         result["warnings"] += sat.warnings
         if sat.status == "SUCCESS":
@@ -249,6 +271,13 @@ def run(
         )
         timings["step6"] = round(time.perf_counter() - _t, 2)
         _write_step(run_dir, "step6", ov.to_dict())
+        _log_block("5-7", "Superimpose parcel on satellite", {
+            "Alignment method": ov.alignment_method,
+            "Centroid pixel": ov.centroid_pixel,
+            "Parcel in frame": ov.parcel_in_frame,
+            "Output": "overlay.png",
+            "Status": f"{ov.status} ({ov.reason})" if ov.reason else ov.status,
+        }, ov.warnings)
         result["overlay"] = ov.to_dict()
         result["warnings"] += ov.warnings
 
@@ -257,6 +286,13 @@ def run(
     dist = verify_distance(centroid["lat"], centroid["lon"], tvr_lat, tvr_lon)
     timings["step8"] = round(time.perf_counter() - _t, 2)
     _write_step(run_dir, "step8", dist.to_dict())
+    _log_block("8", "GPS distance verdict", {
+        "BhuNaksha GPS": f"{dist.bhu['lat']}, {dist.bhu['lon']}" if dist.bhu else None,
+        "Field GPS (TVR)": f"{dist.tvr['lat']}, {dist.tvr['lon']}" if dist.tvr else "not supplied",
+        "Distance": f"{dist.distance_m} m" if dist.distance_m is not None else None,
+        "Verdict": f"{dist.verdict} ({dist.color})" if dist.verdict else None,
+        "Status": dist.status,
+    })
     result["distance"] = dist.to_dict()
     if dist.status == "SUCCESS":
         result["parameter5_verdict"] = dist.verdict
@@ -285,6 +321,19 @@ def _write_step(run_dir: Path, name: str, payload: Any) -> None:
         )
     except Exception as e:  # never let audit-file I/O break the pipeline
         logger.warning("could not write %s.json: %s", name, e)
+
+
+def _log_block(num: str, title: str, facts: Dict[str, Any], warnings=()) -> None:
+    """One consistent, human-readable log block per step (same style as Step 1)."""
+    head = (f"GPS ENGINE — RESULT: {title.upper()}" if num == "RESULT"
+            else f"GPS ENGINE — STEP {num}: {title.upper()}")
+    logger.info("=" * 70)
+    logger.info(" %s", head)
+    logger.info("=" * 70)
+    for k, v in facts.items():
+        logger.info("  %-16s : %s", k, "—" if v is None else v)
+    for w in warnings or ():
+        logger.info("  ! %s", w)
 
 
 def _point_latest_at(run_dir: Path, base_dir: Path) -> None:
@@ -330,7 +379,21 @@ def _finish(result: Dict[str, Any], started: float, run_dir: Path, base_dir: Pat
     _validate(result)
     (run_dir / "gps_engine_result.json").write_text(json.dumps(result, indent=2, ensure_ascii=False))
     _point_latest_at(run_dir, base_dir)
-    logger.info("Pipeline %s (%s) in %ss -> %s", result["status"], result.get("reason"), elapsed, run_dir)
+
+    p = result.get("parcel") or {}
+    c = p.get("centroid_wgs84") or {}
+    d = result.get("distance") or {}
+    _log_block("RESULT", result["status"], {
+        "Reason": result.get("reason"),
+        "Centroid": f"{c.get('lat')}, {c.get('lon')}" if c else None,
+        "Area": f"{p.get('area_sqm')} m2" if p.get("area_sqm") is not None else None,
+        "Parameter 5": (
+            f"{d.get('distance_m')} m -> {d.get('verdict')} ({d.get('color')})"
+            if d.get("verdict") else (d.get("status") if d else None)
+        ),
+        "Total time": f"{elapsed}s  ({', '.join(f'{k} {v}s' for k, v in (result.get('step_timings_seconds') or {}).items())})",
+        "Run folder": run_dir,
+    })
     return result
 
 

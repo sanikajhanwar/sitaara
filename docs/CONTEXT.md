@@ -201,6 +201,10 @@ portal screenshots, the GeoJSON, the satellite mosaic, the overlay, and the aggr
 `output/latest` is a symlink to the newest run. This satisfies the BRD's audit-trail
 requirement (§6.2/§6.4) without any step logic changing.
 
+The terminal mirrors this: every step logs a header block (`GPS ENGINE — STEP N: …`) with its
+key facts — extraction method, CRS, centroid, area, tile count, distance, verdict — followed by
+a final `RESULT` block with per-step timings. Same format as the Step 1 navigation log.
+
 ---
 
 ## 6. Tech stack

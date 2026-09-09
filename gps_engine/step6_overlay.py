@@ -159,7 +159,7 @@ def superimpose_vector(
     res.parcel_in_frame = in_frame if all_px else None
     if all_px and not in_frame:
         res.warnings.append("parcel extends outside the satellite frame — increase span_m in Step 4")
-    logger.info("Step 6: overlay -> %s (%s)", out_path.name, res.alignment_method)
+    logger.debug("Step 6: overlay -> %s (%s)", out_path.name, res.alignment_method)
     return res
 
 

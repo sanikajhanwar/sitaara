@@ -172,7 +172,7 @@ def fetch_satellite(
 
     # sidecar world file for GIS tools
     _write_worldfile(out_path, res.bbox_wgs84, canvas.size)
-    logger.info("Step 4: %s tiles @ z%s -> %s %s", res.tiles_downloaded, z, canvas.size, out_path.name)
+    logger.debug("Step 4: %s tiles @ z%s -> %s %s", res.tiles_downloaded, z, canvas.size, out_path.name)
     return res
 
 
