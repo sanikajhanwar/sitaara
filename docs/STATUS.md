@@ -15,11 +15,15 @@ For per-portal technical notes see [PORTAL_NOTES.md](PORTAL_NOTES.md).
 | **Uttar Pradesh** | Angular NIC (`/bhunakshaserver/`) | ✅ working | centroid + bounding box | 2026-09-08 ✅ |
 | **Rajasthan** | Classic NIC (`ScalarDatahandler`) | ✅ working | centroid + bounding box | 2026-09-08 ✅ |
 | **Chhattisgarh** | Classic NIC (`ScalarDatahandler`) | ✅ working | centroid + bounding box | 2026-09-08 ✅ |
-| **Bihar** | migrated, now broken | ❌ blocked | — | 2026-09-08 ❌ |
-| **Gujarat** | AnyROR (own stack) | ❌ portal offline | — | 2026-09-08 ❌ |
-| **Madhya Pradesh** | — | ❌ portal unreachable | — | 2026-09-08 ❌ |
-| **Uttarakhand** | — | ❌ portal unreachable | — | 2026-09-08 ❌ |
-| **Delhi** | — | ❌ portal unreachable | — | 2026-09-08 ❌ |
+| **Bihar** | Classic NIC (migrated, broken) | ⚠️ adapter navigates; portal geometry endpoint 401 | — | 2026-09-09 ❌ |
+| **Madhya Pradesh** | Classic NIC (candidate) | ⚠️ adapter built (clone of CG); portal unreachable | — | 2026-09-09 ❌ |
+| **Uttarakhand** | Angular NIC (candidate) | ⚠️ adapter built (clone of UP); portal unreachable | — | 2026-09-09 ❌ |
+| **Gujarat** | AnyROR (own stack) | ⚠️ adapter connects+screenshots; map flow not mapped | — | 2026-09-09 ❌ |
+| **Delhi** | DLRC ASP.NET (own stack) | ⚠️ adapter connects+screenshots; flow not mapped | — | 2026-09-09 ❌ |
+| **Haryana** | HSAC React (own stack) | ⚠️ adapter detects OTP login wall → `login_required` | — | 2026-09-09 ❌ |
+
+Every state has a real adapter now. A state that isn't reachable/complete fails with a specific
+reason (`portal_unreachable`, `login_required`, `navigation_not_mapped`, …) — never a crash.
 
 **Offline test suite: 39 tests, all passing** (`pytest gps_engine/tests`), no network required.
 
@@ -117,12 +121,28 @@ The maintenance window has been extended repeatedly (last seen: until 2026-09-07
 offline on 2026-09-08). AnyROR is also a **different technology** from BhuNaksha (integrated
 map, Gujarati, survey-number based) and will need its own adapter, not a BhuNaksha one.
 
-### Madhya Pradesh / Uttarakhand / Delhi — portals unreachable
-`mpbhulekh.gov.in`, `bhunaksha.uk.gov.in`, `dlrc.delhigovt.nic.in` do not load — not from a
-script and not from a real browser in this environment (connection timeout / error page).
-Either the portals are down or they geo-restrict traffic to India. No adapter can be built or
-verified against a portal that won't respond. Config entries exist for these states but no
-adapter module is registered — requesting them raises a clear `NotImplementedError`.
+### Madhya Pradesh / Uttarakhand / Delhi / Gujarat / Haryana — adapters built, portals blocked
+Every one of these now has a real adapter module in `gps_engine/adapters/` and is wired into
+`ADAPTER_MAP`. `run --state <X>` behaves exactly like any other state — Step 1 attempts the
+portal and reports a specific reason:
+
+| State | Adapter | Modelled on | `run` today | If portal reachable |
+|---|---|---|---|---|
+| Madhya Pradesh | `mp_bhunaksha.py` | Chhattisgarh (classic NIC, state=23) | `portal_unreachable` | attempts full navigation → geometry |
+| Uttarakhand | `uk_bhunaksha.py` | Uttar Pradesh (Angular NIC) | `portal_unreachable` | attempts full navigation → geometry |
+| Gujarat | `gj_anyror.py` | — (AnyROR, own stack) | `portal_unreachable` / `navigation_not_mapped` | connects + screenshots; map flow needs live-DOM mapping |
+| Delhi | `dl_dlrc.py` | — (DLRC ASP.NET) | `portal_unreachable` / `navigation_not_mapped` | connects + screenshots; postback flow needs live-DOM mapping |
+| Haryana | `hr_hsac.py` | — (HSAC React) | `login_required` (portal loads, OTP wall detected) | blocked until a login/session strategy exists |
+
+**Why the portals are blocked here:** `mpbhulekh.gov.in`, `bhunaksha.uk.gov.in`,
+`dlrc.delhigovt.nic.in` resolve to valid NIC IPs but TCP :443 times out, while UP/CG on the
+same NIC block connect fine — almost certainly firewalled to India-only traffic. Gujarat
+AnyROR responds but has been in "website maintenance" throughout. Haryana HSAC loads but
+gates everything behind an OTP login.
+
+MP and Uttarakhand are **candidate** adapters — they use a proven stack (classic / Angular NIC)
+and have a real chance of working the moment the portal is reachable, though they haven't been
+verified end-to-end. Gujarat / Delhi need a live-DOM pass to finish `_navigate_*()`.
 
 ---
 

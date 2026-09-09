@@ -227,8 +227,12 @@ class MHBhuNakshaAdapter(CadastralAdapter):
 
     # ── helpers ──────────────────────────────────────────────────────────────
 
-    def _fail(self, error: str, url: str) -> Dict[str, Any]:
-        return {"status": "FAILED", "state": self.state_name, "portal_url": url, "error": error}
+    def _fail(self, error: str, url: str, reason: Optional[str] = None) -> Dict[str, Any]:
+        if reason is None:
+            e = str(error).lower()
+            reason = "portal_unreachable" if any(k in e for k in ("net::", "err_", "timeout", "could not connect")) \
+                else "step1_failed"
+        return {"status": "FAILED", "reason": reason, "state": self.state_name, "portal_url": url, "error": error}
 
     def _fetch_plot_info(self, page, giscode: Optional[str], plotno: str) -> Dict[str, Any]:
         """Call /rest/MapInfo/getPlotInfo inside the page session and normalise the payload."""

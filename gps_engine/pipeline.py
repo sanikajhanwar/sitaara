@@ -143,7 +143,9 @@ def run(
         result["portal_owner_info"] = step1["parcel_raw"]["info"]
 
     if step1.get("status") == "FAILED":
-        result["reason"] = step1.get("error") or "step1_failed"
+        result["reason"] = step1.get("reason") or step1.get("error") or "step1_failed"
+        if step1.get("error") and step1["error"] != result["reason"]:
+            result["warnings"].append(step1["error"])
         return _finish_and_cache(result, started, run_dir, base_dir, cache_dir, ckey, use_cache)
     if step1.get("status") == "REFER":
         result["status"] = "REFER"

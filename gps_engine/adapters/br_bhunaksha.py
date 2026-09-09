@@ -84,7 +84,8 @@ class BRBhuNakshaAdapter(CadastralAdapter):
                 connected_url = self.navigate_with_retry(page, urls, max_retries=3, timeout=35000)
                 if not connected_url:
                     browser.close()
-                    return {"status": "FAILED", "error": "Could not connect to Bihar portal", "portal_url": urls[0]}
+                    return {"status": "FAILED", "reason": "portal_unreachable",
+                            "error": "Could not connect to Bihar portal", "portal_url": urls[0]}
 
                 time.sleep(PAGE_LOAD_WAIT)
                 debug_home = self.output_dir / "debug_br_1_homepage.png"

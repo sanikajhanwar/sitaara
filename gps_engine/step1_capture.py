@@ -49,13 +49,13 @@ class Step1Capture:
         """
         portal_config = CADASTRAL_PORTALS.get(state)
         if not portal_config:
-            supported = list(CADASTRAL_PORTALS.keys())
-            raise ValueError(f"State '{state}' is not supported. Supported states: {supported}")
+            known = ", ".join(CADASTRAL_PORTALS.keys())
+            raise ValueError(f"'{state}' is not a recognised state. Known states: {known}.")
 
         adapter_name = portal_config.get("adapter")
         if adapter_name not in ADAPTER_MAP:
             raise NotImplementedError(
-                f"Adapter '{adapter_name}' for state '{state}' is not yet registered in ADAPTER_MAP."
+                f"config bug: state '{state}' -> adapter '{adapter_name}' is not in ADAPTER_MAP."
             )
 
         module_path, class_name = ADAPTER_MAP[adapter_name]

@@ -150,16 +150,23 @@ Chosen for readability over a more compressed design — a reviewer can open `st
 and understand satellite fetching in isolation. `pipeline.py` is the only file that knows the
 whole sequence.
 
-### Adapter pattern, one class per state
+### Adapter pattern, one class per state — every state has one
 `CadastralAdapter` (ABC) defines the contract; each state subclass implements `capture()`.
 Shared portal helpers (`select_named`, `classic_nic_plot_info`, `bhunakshaserver_plot_info`,
-retry/screenshot utilities) live on the base class.
+retry/screenshot utilities) live on the base class. All 10 states in
+`config.CADASTRAL_PORTALS` have an adapter wired into `step1_capture.ADAPTER_MAP` — there is no
+"unsupported state" branch. An adapter that can't finish (portal down, login wall, navigation
+not yet mapped) returns `FAILED` with a specific `reason`, exactly like a plot-not-found; only
+a state not in config at all raises a `ValueError`.
 
-**Known tech debt:** the four classic-NIC adapters (CG, RJ, BR) repeat ~120 lines of
+Adapter completeness varies: MH/UP/RJ/CG are verified end-to-end; Bihar navigates but the
+portal's geometry endpoint is broken; MP/UK are built on a proven stack but unverified (portal
+unreachable); Gujarat/Delhi connect and screenshot but their `_navigate_*()` needs a live-DOM
+pass; Haryana is blocked by an OTP wall it detects and reports. See [STATUS.md](STATUS.md).
+
+**Known tech debt:** the classic-NIC adapters (CG, RJ, BR, MP) repeat ~120 lines of
 near-identical navigation structure. A planned refactor to shared lifecycle hooks
-(`connect` / `resolve_hierarchy` / `search_plot` / `capture_canvas`) was not done — the
-duplication is tolerable for the current 4-state scope but should be addressed before adding
-many more states.
+(`connect` / `resolve_hierarchy` / `search_plot` / `capture_canvas`) was not done.
 
 ### Names: a resolution layer, not hardcoded tables
 `naming.py` reads the *live* dropdown `<option>` list and matches the caller's English (or
@@ -179,12 +186,14 @@ returns `REFER`.
 No API key, no billing, good rural resolution. `SOURCES` in `step4_satellite.py` is a dict —
 swap in Google Static or Mapbox (with a key) if licensing ever requires it.
 
-### Graceful degradation
-Portal down → `FAILED` (scheduler retries next run). Plot genuinely not found, or geometry
-missing, or a sanity gate trips → `REFER` with a specific `reason` (never a silent success).
-Only a clean, sanity-checked result is `SUCCESS`. Everything is also recorded in `warnings[]`
-for the audit trail, and the output JSON is validated against
-`schema/gps_engine_result.schema.json` on every write.
+### Graceful degradation — a reason, never a crash
+Portal down → `FAILED` with `reason: "portal_unreachable"` (scheduler retries next run). Login
+wall → `login_required`. Navigation not finished for that state → `navigation_not_mapped`.
+Plot genuinely not found, geometry missing, or a sanity gate trips → `REFER` with a specific
+`reason`. Only a clean, sanity-checked result is `SUCCESS`. Every failure path returns a normal
+result dict (run folder, `gps_engine_result.json`, per-step log) — the pipeline never throws an
+uncaught exception for a portal problem. Everything is also recorded in `warnings[]`, and the
+output JSON is validated against `schema/gps_engine_result.schema.json` on every write.
 
 ### 24-hour result cache
 `cache.py` keys on the parcel identity and stores SUCCESS/REFER results for 24 h (a transient

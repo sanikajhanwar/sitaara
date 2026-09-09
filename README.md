@@ -37,10 +37,13 @@ Build status & live test results: **[docs/STATUS.md](docs/STATUS.md)**.
 | Uttar Pradesh | ✅ working | centroid + bbox |
 | Rajasthan | ✅ working | centroid + bbox |
 | Chhattisgarh | ✅ working | centroid + bbox |
-| Bihar | ❌ portal migrated & broken | — |
-| Gujarat / MP / Uttarakhand / Delhi | ❌ portal offline / unreachable | — |
+| Bihar | ⚠️ adapter navigates; portal geometry endpoint broken | — |
+| MP / Uttarakhand | ⚠️ adapter built (proven stack); portal unreachable | — |
+| Gujarat / Delhi / Haryana | ⚠️ adapter connects + reports; navigation needs a live-DOM pass | — |
 
-39 offline tests, all passing. Details and reasons in [docs/STATUS.md](docs/STATUS.md).
+**Every state has a real adapter.** Unreachable / incomplete ones fail with a specific reason
+(`portal_unreachable`, `login_required`, `navigation_not_mapped`) — never a crash. See
+[docs/STATUS.md](docs/STATUS.md).
 
 ---
 
@@ -107,11 +110,16 @@ gps_engine/
   config.py               portal registry + constants
   adapters/
     base.py               CadastralAdapter ABC + shared portal helpers
-    mh_bhunaksha.py        Maharashtra   (modern NIC)
-    up_bhunaksha.py        Uttar Pradesh (Angular NIC)
-    rj_bhunaksha.py        Rajasthan     (classic NIC)
-    cg_bhunaksha.py        Chhattisgarh  (classic NIC)
-    br_bhunaksha.py        Bihar         (experimental — see docs/STATUS.md)
+    mh_bhunaksha.py        Maharashtra   (modern NIC)     ✅ verified
+    up_bhunaksha.py        Uttar Pradesh (Angular NIC)     ✅ verified
+    rj_bhunaksha.py        Rajasthan     (classic NIC)     ✅ verified
+    cg_bhunaksha.py        Chhattisgarh  (classic NIC)     ✅ verified
+    br_bhunaksha.py        Bihar         (classic NIC)     ⚠️ navigates; portal geometry endpoint broken
+    mp_bhunaksha.py        Madhya Pradesh (classic NIC)    ⚠️ candidate — portal unreachable
+    uk_bhunaksha.py        Uttarakhand   (Angular NIC)     ⚠️ candidate — portal unreachable
+    gj_anyror.py           Gujarat       (AnyROR)          ⚠️ connects; map flow not yet mapped
+    dl_dlrc.py             Delhi         (DLRC ASP.NET)    ⚠️ connects; flow not yet mapped
+    hr_hsac.py             Haryana       (HSAC React)      ⚠️ blocked by OTP login wall
   schema/                 JSON Schema for the result payload
   tests/                  offline test suite + fixtures
 

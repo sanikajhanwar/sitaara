@@ -190,8 +190,11 @@ class UPBhuNakshaAdapter(CadastralAdapter):
 
         except Exception as e:
             self.logger.error(f"UP BhuNaksha error: {e}", exc_info=True)
+            el = str(e).lower()
+            reason = "portal_unreachable" if any(k in el for k in ("net::", "err_", "timeout")) else "adapter_exception"
             return {
                 "status": "FAILED",
+                "reason": reason,
                 "state": self.state_name,
                 "portal_url": self.portal_url,
                 "error": str(e)

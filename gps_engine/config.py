@@ -123,36 +123,44 @@ CADASTRAL_PORTALS = {
     "Gujarat": {
         "adapter":     "gj_anyror",
         "url":         "https://anyror.gujarat.gov.in",
-        "tech_stack":  "vanilla_js",
+        "tech_stack":  "anyror_aspnet",
         "nav_levels":  ["district", "taluka", "village", "survey_no"],
+        "native_crs":  "EPSG:32643",
         "script_lang": "gu",
+        "support":     "partial",   # adapter connects + screenshots; map flow not mapped (portal was offline)
         "notes": (
-            "AnyROR portal — navigate to Map View tab after village/survey selection. "
-            "Gujarati script labels. Selectors to be confirmed by live DOM dump."
+            "AnyROR — NOT BhuNaksha. adapters/gj_anyror.py connects and screenshots; the "
+            "district/taluka/village/survey map flow needs mapping against the live DOM. "
+            "Portal has been offline (maintenance) throughout development."
         ),
     },
 
     "Madhya Pradesh": {
         "adapter":     "mp_bhunaksha",
-        "url":         "https://mpbhulekh.gov.in/bhunaksha",
-        "tech_stack":  "aspnet_webforms",
-        "nav_levels":  ["district", "tehsil", "village", "khasra"],
+        "url":         "https://mpbhunaksha.gov.in",
+        "bhunaksha_state_code": "23",
+        "tech_stack":  "nic_bhunaksha_classic",
+        "nav_levels":  ["district", "tehsil", "ri_circle", "village", "khasra"],
+        "native_crs":  "EPSG:32643",   # west/central MP 43N; east MP 44N (Step 3 re-checks)
         "script_lang": "hi",
+        "support":     "candidate",   # classic-NIC adapter (clone of CG); not verified — portal unreachable
         "notes": (
-            "MP Bhulekh BhuNaksha module. ASP.NET with VIEWSTATE. "
-            "Hindi interface. Selectors to be confirmed by live DOM dump."
+            "adapters/mp_bhunaksha.py — classic NIC (#level_N + ScalarDatahandler, state=23), "
+            "modelled on Chhattisgarh. Unverified: portal firewalled from our test env."
         ),
     },
 
     "Uttarakhand": {
         "adapter":     "uk_bhunaksha",
         "url":         "https://bhunaksha.uk.gov.in",
-        "tech_stack":  "angular_material",
+        "tech_stack":  "nic_bhunaksha_angular",
         "nav_levels":  ["district", "tehsil", "village", "khasra"],
+        "native_crs":  "EPSG:32644",   # UTM 44N
         "script_lang": "hi",
+        "support":     "candidate",   # Angular-NIC adapter (clone of UP); not verified — portal unreachable
         "notes": (
-            "Similar Angular stack to UP. GPS centroid in map URL. "
-            "Selectors to be confirmed by live DOM dump."
+            "adapters/uk_bhunaksha.py — Angular NIC (mat-select + /bhunakshaserver/), "
+            "modelled on Uttar Pradesh. Unverified: portal unreachable from our test env."
         ),
     },
 
@@ -193,10 +201,13 @@ CADASTRAL_PORTALS = {
         "url":         "https://hsac.in/eodb/map",
         "tech_stack":  "react",
         "nav_levels":  ["district", "tehsil", "village", "murabba", "khasra"],
+        "native_crs":  "EPSG:32643",
         "script_lang": "en",
+        "support":     "blocked",   # OTP login wall — adapter detects it and returns FAILED: login_required
         "notes": (
-            "HSAC GeoStack EODB portal. Has extra Murabba level. "
-            "English interface. React-based. Selectors to be confirmed by live DOM dump."
+            "adapters/hr_hsac.py — HSAC EODB map (React). Sits behind an OTP / mobile login "
+            "wall; the adapter connects, detects the wall, and returns login_required. "
+            "Needs a login/session strategy before navigation is possible."
         ),
     },
 
@@ -205,11 +216,13 @@ CADASTRAL_PORTALS = {
         "url":         "https://dlrc.delhigovt.nic.in",
         "tech_stack":  "aspnet_webforms",
         "nav_levels":  ["zone", "village", "khasra"],
+        "native_crs":  "EPSG:32643",
         "script_lang": "en",
+        "support":     "partial",   # adapter connects + screenshots; Zone/Village/Khasra flow not mapped
         "notes": (
-            "DLRC Revenue Maps. Covers Lal Dora / revenue villages only. "
-            "Urban properties NOT applicable — use Google Maps satellite directly. "
-            "English interface. Selectors to be confirmed by live DOM dump."
+            "adapters/dl_dlrc.py — DLRC Revenue Maps (ASP.NET). Covers Lal Dora / revenue "
+            "villages only; urban/DDA plots are not on DLRC. Adapter connects and screenshots; "
+            "the postback-driven Zone/Village/Khasra flow needs mapping against the live DOM."
         ),
     },
 }
