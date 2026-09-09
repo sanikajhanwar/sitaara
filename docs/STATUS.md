@@ -122,8 +122,7 @@ map, Gujarati, survey-number based) and will need its own adapter, not a BhuNaks
 script and not from a real browser in this environment (connection timeout / error page).
 Either the portals are down or they geo-restrict traffic to India. No adapter can be built or
 verified against a portal that won't respond. Config entries exist for these states but no
-adapter is registered — `cli run` for them returns `FAILED: state_not_supported` with a
-message naming the states that do work (no crash, still writes a run folder).
+adapter module is registered — requesting them raises a clear `NotImplementedError`.
 
 ---
 
