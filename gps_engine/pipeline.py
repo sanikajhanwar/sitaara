@@ -122,10 +122,17 @@ def run(
 
     # ── STEP 1 ──────────────────────────────────────────────────────────────
     _t = time.perf_counter()
-    step1 = Step1Capture(output_dir=run_dir).capture_plot(
-        state=state, district=district, tehsil=tehsil, village=village,
-        khasra_no=khasra_no, headless=headless, extra_params=extra_params,
-    )
+    try:
+        step1 = Step1Capture(output_dir=run_dir).capture_plot(
+            state=state, district=district, tehsil=tehsil, village=village,
+            khasra_no=khasra_no, headless=headless, extra_params=extra_params,
+        )
+    except (NotImplementedError, ValueError) as e:
+        timings["step1"] = round(time.perf_counter() - _t, 2)
+        result["reason"] = "state_not_supported"
+        result["warnings"].append(str(e))
+        logger.error("%s", e)
+        return _finish_and_cache(result, started, run_dir, base_dir, cache_dir, ckey, use_cache)
     timings["step1"] = round(time.perf_counter() - _t, 2)
     _write_step(run_dir, "step1", step1)
 

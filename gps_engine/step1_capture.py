@@ -19,19 +19,20 @@ from gps_engine.adapters.base import CadastralAdapter
 
 logger = logging.getLogger("GPS.Step1Router")
 
-# Adapter class mapping
+# State -> (adapter module, adapter class). Only states with a built adapter are listed.
+# Gujarat / Madhya Pradesh / Uttarakhand / Delhi / Haryana are in config.CADASTRAL_PORTALS
+# but their portals are offline / unreachable, so no adapter exists yet — see docs/STATUS.md.
 ADAPTER_MAP = {
+    "mh_bhunaksha": ("gps_engine.adapters.mh_bhunaksha", "MHBhuNakshaAdapter"),
     "up_bhunaksha": ("gps_engine.adapters.up_bhunaksha", "UPBhuNakshaAdapter"),
     "rj_bhunaksha": ("gps_engine.adapters.rj_bhunaksha", "RJBhuNakshaAdapter"),
-    "mh_bhunaksha": ("gps_engine.adapters.mh_bhunaksha", "MHBhuNakshaAdapter"),
-    "gj_anyror":    ("gps_engine.adapters.gj_anyror", "GJAnyRORAdapter"),
-    "mp_bhunaksha": ("gps_engine.adapters.mp_bhunaksha", "MPBhuNakshaAdapter"),
-    "uk_bhunaksha": ("gps_engine.adapters.uk_bhunaksha", "UKBhuNakshaAdapter"),
     "cg_bhunaksha": ("gps_engine.adapters.cg_bhunaksha", "CGBhuNakshaAdapter"),
     "br_bhunaksha": ("gps_engine.adapters.br_bhunaksha", "BRBhuNakshaAdapter"),
-    "hr_hsac":      ("gps_engine.adapters.hr_hsac", "HRHSACAdapter"),
-    "dl_dlrc":      ("gps_engine.adapters.dl_dlrc", "DLDLRCAdapter"),
 }
+
+# States whose adapter runs the full pipeline end-to-end today (Bihar navigates but its
+# portal's geometry endpoint is currently broken — see docs/STATUS.md).
+SUPPORTED_STATES = ["Maharashtra", "Uttar Pradesh", "Rajasthan", "Chhattisgarh", "Bihar"]
 
 
 class Step1Capture:
@@ -49,13 +50,16 @@ class Step1Capture:
         """
         portal_config = CADASTRAL_PORTALS.get(state)
         if not portal_config:
-            supported = list(CADASTRAL_PORTALS.keys())
-            raise ValueError(f"State '{state}' is not supported. Supported states: {supported}")
+            raise ValueError(
+                f"'{state}' is not a recognised state. Supported: {', '.join(SUPPORTED_STATES)}."
+            )
 
         adapter_name = portal_config.get("adapter")
         if adapter_name not in ADAPTER_MAP:
             raise NotImplementedError(
-                f"Adapter '{adapter_name}' for state '{state}' is not yet registered in ADAPTER_MAP."
+                f"No adapter for {state} yet — its portal is offline or unreachable "
+                f"(see docs/STATUS.md). States with a working adapter: "
+                f"{', '.join(SUPPORTED_STATES)}."
             )
 
         module_path, class_name = ADAPTER_MAP[adapter_name]
@@ -65,7 +69,7 @@ class Step1Capture:
             return adapter_class(state_name=state, portal_config=portal_config, output_dir=self.output_dir)
         except (ImportError, AttributeError) as e:
             raise NotImplementedError(
-                f"Adapter class '{class_name}' in module '{module_path}' could not be loaded: {e}"
+                f"Adapter for {state} ({module_path}) failed to load: {e}"
             )
 
     def capture_plot(

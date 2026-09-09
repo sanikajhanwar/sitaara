@@ -60,6 +60,18 @@ def main():
 
     args = parser.parse_args()
 
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+
+    try:
+        _dispatch(args)
+    except (ValueError, NotImplementedError) as e:
+        print(f"\n  {e}\n", file=sys.stderr)
+        sys.exit(2)
+
+
+def _dispatch(args):
     if args.command == "step1":
         import time
         from gps_engine.config import OUTPUT_DIR
@@ -138,10 +150,6 @@ def main():
         print(f"  Run dir  : {result.get('output_dir')}")
         print(f"  Result   : {result.get('output_dir')}/gps_engine_result.json")
         print("=" * 70 + "\n")
-
-    else:
-        parser.print_help()
-        sys.exit(1)
 
 
 if __name__ == "__main__":
