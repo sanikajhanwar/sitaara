@@ -113,7 +113,9 @@ class BRBhuNakshaAdapter(CadastralAdapter):
                 if not r["ok"]:
                     self.safe_screenshot(page, self.output_dir / "debug_br_FAILED_district.png")
                     browser.close()
-                    return {"status": "FAILED", "error": r["warning"], "portal_url": connected_url}
+                    reason = "hierarchy_did_not_load" if "among 0 options" in (r["warning"] or "") else "district_not_matched"
+                    return {"status": "FAILED", "reason": reason, "error": r["warning"],
+                            "portal_url": connected_url}
                 if r["warning"]:
                     name_warnings.append(r["warning"])
                 time.sleep(AJAX_WAIT_SECONDS)
@@ -145,7 +147,8 @@ class BRBhuNakshaAdapter(CadastralAdapter):
                 if not r["ok"]:
                     self.safe_screenshot(page, self.output_dir / "debug_br_FAILED_village.png")
                     browser.close()
-                    return {"status": "FAILED", "error": r["warning"], "portal_url": connected_url}
+                    return {"status": "FAILED", "reason": "mauza_not_matched",
+                            "error": r["warning"], "portal_url": connected_url}
                 if r["warning"]:
                     name_warnings.append(r["warning"])
                 time.sleep(AJAX_WAIT_SECONDS)
