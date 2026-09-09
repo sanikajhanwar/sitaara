@@ -19,20 +19,6 @@
       "additionalProperties": { "type": "number" }
     },
 
-    "portal_check": {
-      "type": "object",
-      "description": "Set by FallbackAdapter for states with no navigation adapter — record of the portal attempt.",
-      "properties": {
-        "probed_at": { "type": "string" },
-        "reason": { "enum": ["portal_unreachable", "adapter_not_implemented"] },
-        "attempts": { "type": "integer" },
-        "error": { "type": ["string", "null"] },
-        "portal_url": { "type": ["string", "null"] },
-        "final_url": { "type": ["string", "null"] },
-        "page_title": { "type": ["string", "null"] }
-      }
-    },
-
     "nav_resolved": {
       "type": "object",
       "required": ["district", "tehsil", "village", "khasra"],

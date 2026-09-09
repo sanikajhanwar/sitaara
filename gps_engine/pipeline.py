@@ -141,13 +141,9 @@ def run(
     result["warnings"] += step1.get("name_warnings") or []
     if (step1.get("parcel_raw") or {}).get("info"):
         result["portal_owner_info"] = step1["parcel_raw"]["info"]
-    if step1.get("portal_check"):                 # from FallbackAdapter
-        result["portal_check"] = step1["portal_check"]
 
     if step1.get("status") == "FAILED":
-        result["reason"] = step1.get("reason") or step1.get("error") or "step1_failed"
-        if step1.get("error"):
-            result["warnings"].append(step1["error"])
+        result["reason"] = step1.get("error") or "step1_failed"
         return _finish_and_cache(result, started, run_dir, base_dir, cache_dir, ckey, use_cache)
     if step1.get("status") == "REFER":
         result["status"] = "REFER"

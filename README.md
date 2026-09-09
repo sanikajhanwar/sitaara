@@ -112,7 +112,6 @@ gps_engine/
     rj_bhunaksha.py        Rajasthan     (classic NIC)
     cg_bhunaksha.py        Chhattisgarh  (classic NIC)
     br_bhunaksha.py        Bihar         (experimental — see docs/STATUS.md)
-    fallback.py           states with no adapter yet — attempts the portal, records the outcome
   schema/                 JSON Schema for the result payload
   tests/                  offline test suite + fixtures
 

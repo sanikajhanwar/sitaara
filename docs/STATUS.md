@@ -120,21 +120,9 @@ map, Gujarati, survey-number based) and will need its own adapter, not a BhuNaks
 ### Madhya Pradesh / Uttarakhand / Delhi — portals unreachable
 `mpbhulekh.gov.in`, `bhunaksha.uk.gov.in`, `dlrc.delhigovt.nic.in` do not load — not from a
 script and not from a real browser in this environment (connection timeout / error page).
-The hostnames resolve to valid NIC IPs, but TCP :443 never connects, while UP and CG on the
-*same* NIC IP block do — most likely these three are firewalled to India-only traffic.
-
-### How `run` handles Gujarat / MP / Uttarakhand / Delhi / Haryana
-These states are in `config.CADASTRAL_PORTALS` but have no navigation adapter, so Step 1 uses
-**`FallbackAdapter`**: it still *attempts* the portal (3 retries) and writes a timestamped
-record to the run folder — `step1.json` + `gps_engine_result.json` get a `portal_check` block
-(`probed_at`, `portal_url`, `final_url`, `page_title`, `attempts`, `error`) plus a screenshot.
-Outcome is always `FAILED`, with reason:
-- `portal_unreachable` — could not connect on any retry
-- `adapter_not_implemented` — portal loaded, but there is no code to navigate it
-
-So there is always an audit trail of when a portal was tried and what happened, and a dead
-portal coming back is visible immediately. A genuinely unknown state (not in config) still
-fails fast with a `ValueError`.
+Either the portals are down or they geo-restrict traffic to India. No adapter can be built or
+verified against a portal that won't respond. Config entries exist for these states but no
+adapter module is registered — requesting them raises a clear `NotImplementedError`.
 
 ---
 
