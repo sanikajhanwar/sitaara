@@ -186,6 +186,14 @@ Only a clean, sanity-checked result is `SUCCESS`. Everything is also recorded in
 for the audit trail, and the output JSON is validated against
 `schema/gps_engine_result.schema.json` on every write.
 
+### Every state is treated the same way
+A state with no navigation adapter (Gujarat, MP, Uttarakhand, Delhi, Haryana) is *not*
+rejected up front — Step 1 uses `adapters/fallback.py`, which still attempts the portal and
+writes a timestamped `portal_check` record (+ screenshot) to the run folder before returning
+`FAILED` (`portal_unreachable` or `adapter_not_implemented`). So there is always an audit
+record of the attempt, and a portal coming back online is noticed immediately. Only a state
+that isn't in `config.CADASTRAL_PORTALS` at all fails fast, with a `ValueError`.
+
 ### 24-hour result cache
 `cache.py` keys on the parcel identity and stores SUCCESS/REFER results for 24 h (a transient
 outage is never cached). Step 8 is always recomputed on a cache hit because it depends on the
